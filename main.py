@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
-app = FastAPI()
+app = FastAPI(title="ESP Message Server")
 
-last_message = {
+message_store = {
     "id": 0,
     "text": "",
     "created_at": None,
@@ -12,12 +12,16 @@ last_message = {
 
 
 class MessageIn(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=500)
 
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "esp-message-server"}
+    return {
+        "status": "ok",
+        "service": "esp-message-server",
+        "endpoints": ["/send", "/message", "/docs"],
+    }
 
 
 @app.post("/send")
@@ -27,16 +31,31 @@ def send_message(message: MessageIn):
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
 
-    last_message["id"] += 1
-    last_message["text"] = text
-    last_message["created_at"] = datetime.now(timezone.utc).isoformat()
+    message_store["id"] += 1
+    message_store["text"] = text
+    message_store["created_at"] = datetime.now(timezone.utc).isoformat()
 
     return {
         "ok": True,
-        "message": last_message,
+        "message": message_store,
     }
 
 
 @app.get("/message")
 def get_message():
-    return last_message
+    return {
+        "ok": True,
+        "message": message_store,
+    }
+
+
+@app.post("/clear")
+def clear_message():
+    message_store["id"] += 1
+    message_store["text"] = ""
+    message_store["created_at"] = datetime.now(timezone.utc).isoformat()
+
+    return {
+        "ok": True,
+        "message": message_store,
+    }
