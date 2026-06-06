@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse
+import shutil
 
 app = FastAPI(title="ESP Message Server")
 
@@ -12,6 +14,40 @@ class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     author: str = Field(default="Dan", max_length=50)
 
+
+PHOTO_PATH = Path("photo.jpg")
+
+@app.post("/photo")
+
+def upload_photo(file: UploadFile = File(...)):
+
+    if not file.content_type.startswith("image/"):
+
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    with PHOTO_PATH.open("wb") as buffer:
+
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+
+        "ok": True,
+
+        "filename": file.filename,
+
+        "url": "/photo.jpg",
+
+    }
+
+@app.get("/photo.jpg")
+
+def get_photo():
+
+    if not PHOTO_PATH.exists():
+
+        raise HTTPException(status_code=404, detail="No photo uploaded")
+
+    return FileResponse(PHOTO_PATH, media_type="image/jpeg")
 
 @app.get("/")
 def root():
